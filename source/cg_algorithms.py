@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
+from difflib import restore
 import math
 from unittest import result
 
@@ -119,4 +120,58 @@ def draw_polygon(p_list : list, algorithm : str) -> list :
     for i in range(len(p_list)):
         line = draw_line([p_list[i - 1], p_list[i]], algorithm)
         result += line
+    return result
+
+def draw_ellipse(p_list: list) -> list:
+    """Draw ellipse
+
+    param p_list: (list of list of int: [[x0, y0], [x1, y1]]) the diagonal vertices coordinates
+    return:       (list of list of int: [[x0, y0], [x1, y1], ... , [xn, yn]])
+    """
+
+    def mapping(src: list, center: list) -> list:
+        result = []
+        x, y = src
+        xc, yc = center
+        result.append([xc + x, yc + y])
+        result.append([xc + x, yc - y])
+        result.append([xc - x, yc - y])
+        result.append([xc - x, yc + y])
+        return result
+
+    x0, y0 = p_list[0]
+    x1, y1 = p_list[1]
+    xc = round((x0 + x1) / 2)
+    yc = round((y0 + y1) / 2)
+    rx = round(abs(x0 - x1) / 2)
+    ry = round(abs(y0 - y1) / 2)
+    rx2 = rx * rx
+    ry2 = ry * ry
+
+    result = []
+    x, y = 0, ry
+    p = ry2 - rx2 * ry + 0.25 * rx2
+    result += mapping([x, y], [xc, yc])
+    
+    while(ry2 * x < rx2 * y):
+        if p < 0:
+            p = p + 2*ry2*x + 3*ry2
+            x += 1
+        else:
+            p = p + 2*ry2*x - 2*rx2*y + 2*rx2 + 3*ry2
+            x += 1
+            y -= 1
+        result += mapping([x, y], [xc, yc])
+    
+    p = ry2*(x + 0.5)*(x + 0.5) + rx2*(y - 1)*(y - 1) - rx2 * ry2
+    while y > 0:
+        if p > 0:
+            p = p - 2*rx2*y + 3*rx2
+            y -= 1
+        else:
+            p = p + 2*ry2*x - 2*rx2*y + 2*ry2 + 3*rx2
+            y -= 1
+            x += 1
+        result += mapping([x, y], [xc, yc])
+
     return result
