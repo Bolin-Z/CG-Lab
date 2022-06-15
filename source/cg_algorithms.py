@@ -7,9 +7,9 @@ from unittest import result
 def draw_line(p_list: list, algorithm: str) -> list :
     """Draw line
 
-    :param p_list: (list of list of int: [[x0, y0], [x1, y1]]) start and end coordinates
-    :param algorithm: (string) Naive | DDA | Bresenham
-    :return: (list of list of int: [[x0, y0], [x1, y1], ...]) list of pixels' coordinates
+    param p_list:    (list of list of int: [[x0, y0], [x1, y1]]) start and end points coordinates
+    param algorithm: (string) valid algorithms Naive | DDA | Bresenham
+    return:          (list of list of int: [[x0, y0], [x1, y1], ...]) list of pixels' coordinates
     """
     def draw_verticalLine(p_list: list) -> list :
         x0, y0 = p_list[0]
@@ -107,3 +107,16 @@ def draw_line(p_list: list, algorithm: str) -> list :
                         p += 2*absdx
                     result.append([x, y])
         return result
+
+def draw_polygon(p_list : list, algorithm : str) -> list :
+    """Draw polygon
+
+    param p_list:    (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) vertives coordinates of polygon
+    param algorithm: (string) valid algorithms Naive | DDA | Bresenham
+    return:          (list of list of int: [[x0, y0], [x1, y1], ... , [xn, yn]])
+    """
+    result = []
+    for i in range(len(p_list)):
+        line = draw_line([p_list[i - 1], p_list[i]], algorithm)
+        result += line
+    return result
