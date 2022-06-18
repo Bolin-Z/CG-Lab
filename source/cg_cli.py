@@ -88,7 +88,10 @@ if __name__ == '__main__':
                 algorithm = line[-1]
                 item_dict[item_id] = ['curve', p_list, algorithm, np.array(pen_color)]
             elif line[0] == 'translate':
-                pass
+                item_id = line[1]
+                dx, dy = int(line[2]), int(line[3])
+                if item_id in item_dict:
+                    alg.translate(item_dict[item_id][1], dx,dy)
             elif line[0] == 'rotate':
                 pass
             elif line[0] == 'scale':

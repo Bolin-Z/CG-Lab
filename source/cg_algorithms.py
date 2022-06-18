@@ -249,3 +249,15 @@ def draw_curve(p_list: list, algorithm : str) -> list :
             for i in range(0,len(points)-1):
                 result += draw_line([points[i], points[i+1]], 'Bresenham')
         return result
+
+def translate(p_list: list, dx: int, dy: int) -> None:
+    """Traslation
+
+    param p_list: (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) control points
+    param dx:     (int) horizontal offset
+    param dy:     (int) vertical offset
+    """
+
+    for i in range(0,len(p_list)):
+        p_list[i][0] += dx
+        p_list[i][1] += dy
