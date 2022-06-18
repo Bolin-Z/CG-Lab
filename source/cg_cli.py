@@ -93,7 +93,11 @@ if __name__ == '__main__':
                 if item_id in item_dict:
                     alg.translate(item_dict[item_id][1], dx,dy)
             elif line[0] == 'rotate':
-                pass
+                item_id = line[1]
+                xc, yc = int(line[2]), int(line[3])
+                r = int(line[4])
+                if item_id in item_dict:
+                    alg.rotate(item_dict[item_id][1], xc, yc, r)
             elif line[0] == 'scale':
                 pass
             elif line[0] == 'clip':

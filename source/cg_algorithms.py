@@ -261,3 +261,21 @@ def translate(p_list: list, dx: int, dy: int) -> None:
     for i in range(0,len(p_list)):
         p_list[i][0] += dx
         p_list[i][1] += dy
+
+def rotate(p_list: list, xc:int, yc:int, r:int) -> None:
+    """Rotation
+
+    param p_list: (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) control points
+    param xc:     (int) x coordinate of rotate center
+    param yc:     (int) y coordinate of rotate center
+    param r:      (int) clockwise rotate degree
+    """
+    rad = r * math.pi / 180
+    cos_r = math.cos(rad)
+    sin_r = math.sin(rad)
+    for i in range(0,len(p_list)):
+        ox, oy = p_list[i]
+        nx = xc + round((ox - xc)*cos_r - (oy - yc)*sin_r)
+        ny = yc + round((oy - yc)*cos_r + (ox - xc)*sin_r)
+        p_list[i] = [nx, ny]
+
