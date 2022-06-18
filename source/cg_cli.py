@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
-from cmath import log
 import sys
 import os
-from turtle import width
 import cg_algorithms as alg
 import numpy as np
 from PIL import Image
@@ -47,7 +45,9 @@ if __name__ == '__main__':
                         for x, y in pixels:
                             canvas[y, x] = color
                     elif item_type == 'curve':
-                        pass
+                        pixels = alg.draw_curve(p_list, algorithm)
+                        for x, y in pixels:
+                            canvas[y, x] = color
                 Image.fromarray(canvas).save(os.path.join(output_dir, save_name + '.bmp'), 'bmp')
             elif line[0] == 'setColor':
                 pen_color[0] = int(line[1])
@@ -64,7 +64,7 @@ if __name__ == '__main__':
             elif line[0] == 'drawPolygon':
                 item_id = line[1]
                 p_list = []
-                x , y = 2 , 3
+                x, y = 2, 3
                 for i in range(2, len(line) - 1, 2):
                     p_list.append([int(line[x]), int(line[y])])
                     x += 2
@@ -78,7 +78,15 @@ if __name__ == '__main__':
                 algorithm = ''
                 item_dict[item_id] = ['ellipse', [[x0, y0], [x1, y1]], algorithm, np.array(pen_color)]
             elif line[0] == 'drawCurve':
-                pass
+                item_id = line[1]
+                p_list = []
+                x, y = 2, 3
+                for i in range(2, len(line) - 1, 2):
+                    p_list.append([int(line[x]), int(line[y])])
+                    x += 2
+                    y += 2
+                algorithm = line[-1]
+                item_dict[item_id] = ['curve', p_list, algorithm, np.array(pen_color)]
             elif line[0] == 'translate':
                 pass
             elif line[0] == 'rotate':

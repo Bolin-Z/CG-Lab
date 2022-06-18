@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 # -*- coding:utf-8 -*-
 
-from difflib import restore
 import math
-from unittest import result
 
 def draw_line(p_list: list, algorithm: str) -> list :
     """Draw line
@@ -175,3 +173,79 @@ def draw_ellipse(p_list: list) -> list:
         result += mapping([x, y], [xc, yc])
 
     return result
+
+def draw_curve(p_list: list, algorithm : str) -> list :
+    """Draw curve
+
+    param p_list:    (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) control points
+    param algorithm: (string) valid algorithms Bezier | B-spline
+    return:          (list of list of int: [[x0, y0], [x1, y1], ... , [xn, yn]])
+    """
+
+    if len(p_list) <= 1:
+        return p_list
+    elif len(p_list) == 2:
+        return draw_line(p_list, 'Bresenham')
+    else:
+        result = []
+        
+        if algorithm == 'Bezier':
+            def getPointonCurve(p_list : list, u : float) -> list:
+                """Get point on bezier curve given parameter u
+
+                param p_list: (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) control points
+                param u:      (float) parameter
+                return:       (list of int: [x, y]) the coordinate
+                """
+                p = []
+                for i in range(0, len(p_list)):
+                    p.append(p_list[i])
+                for k in range(1, len(p_list)):
+                    for s in range(0, len(p_list) - k):
+                        p[s][0] = (1-u)*p[s][0] + u * p[s+1][0]
+                        p[s][1] = (1-u)*p[s][1] + u * p[s+1][1]
+                return [round(p[0][0]), round(p[0][1])]
+
+            curvePoints = []
+            u = 0.0
+            step = 0.01
+            while u <= 1.0:
+                curvePoints.append(getPointonCurve(p_list, u))                
+                u += step
+            for i in range(1, len(curvePoints)):
+                result += draw_line([curvePoints[i-1], curvePoints[i]], 'Bresenham')
+        elif algorithm == 'B-spline':
+            p = 3
+            n = len(p_list) - 1
+            m = n + p + 1
+            # sample points number in each interval [u_{k}, u_{k+1})
+            samplePointsNumber = 50
+            knots = [ x * samplePointsNumber for x in range(0, m + 1)]
+            points = []
+
+            for k in range(p, m - p):
+                for u in range(knots[k], knots[k+1]):
+                    # u in [u_{k}, u_{k+1})
+                    # deBoor-cox algorithm
+                    s = 0 if (u != knots[k]) else 1
+                    h = p - s
+                    ctrlPoints = []
+                    # ctrlPoints = {P_{k-p}, P_{k-p+1}, ..., P_{k-s-1}, P_{k-s}}
+                    for affectedPoint in range(k - p, k - s + 1):
+                        ctrlPoints.append(p_list[affectedPoint])
+                    # calculate C(u)
+                    for r in range(1, h + 1):
+                        offset = k - p
+                        # [P_{k-p+r}, P_{k-s}]
+                        for i in range((k - s),(k - p + r) - 1,-1):
+                            a = (u - knots[i]) / (knots[i+p-r+1] - knots[i])
+                            ctrlPoints[i - offset] = [
+                                (1 - a)*ctrlPoints[i-1-offset][0] + a*ctrlPoints[i-offset][0],
+                                (1 - a)*ctrlPoints[i-1-offset][1] + a*ctrlPoints[i-offset][1]
+                            ]
+                    # P_{k-s, p-s} is the point C(u)
+                    points.append( [round(ctrlPoints[-1][0]), round(ctrlPoints[-1][1])])
+            # use line to connect points
+            for i in range(0,len(points)-1):
+                result += draw_line([points[i], points[i+1]], 'Bresenham')
+        return result
