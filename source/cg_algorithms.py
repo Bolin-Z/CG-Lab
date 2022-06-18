@@ -279,3 +279,18 @@ def rotate(p_list: list, xc:int, yc:int, r:int) -> None:
         ny = yc + round((oy - yc)*cos_r + (ox - xc)*sin_r)
         p_list[i] = [nx, ny]
 
+def scale(p_list:list, xc:int, yc:int, s:float) -> None:
+    """Scale
+
+    param p_list: (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) control points
+    param xc:     (int) x coordinate of scale center
+    param yc:     (int) y coordinate of scale center
+    param s:      (float)
+    """
+    offset_x = xc * (1 - s)
+    offset_y = yc * (1 - s)
+    for i in range(0,len(p_list)):
+        ox, oy = p_list[i]
+        nx = round(ox*s + offset_x)
+        ny = round(oy*s + offset_y)
+        p_list[i] = [nx, ny]
