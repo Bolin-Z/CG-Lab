@@ -2,6 +2,7 @@
 # -*- coding:utf-8 -*-
 
 import math
+from unittest import result
 
 def draw_line(p_list: list, algorithm: str) -> list :
     """Draw line
@@ -42,6 +43,9 @@ def draw_line(p_list: list, algorithm: str) -> list :
             result.append([x, y])
             y += d
         return result
+
+    if len(p_list) != 2:
+        return []
 
     x0, y0 = p_list[0]
     x1, y1 = p_list[1]
@@ -262,7 +266,7 @@ def translate(p_list: list, dx: int, dy: int) -> None:
         p_list[i][0] += dx
         p_list[i][1] += dy
 
-def rotate(p_list: list, xc:int, yc:int, r:int) -> None:
+def rotate(p_list: list, xc: int, yc: int, r: int) -> None:
     """Rotation
 
     param p_list: (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) control points
@@ -279,7 +283,7 @@ def rotate(p_list: list, xc:int, yc:int, r:int) -> None:
         ny = yc + round((oy - yc)*cos_r + (ox - xc)*sin_r)
         p_list[i] = [nx, ny]
 
-def scale(p_list:list, xc:int, yc:int, s:float) -> None:
+def scale(p_list: list, xc: int, yc: int, s: float) -> None:
     """Scale
 
     param p_list: (list of list of int: [[x0, y0], [x1, y1], ... , [xk, yk]]) control points
@@ -294,3 +298,115 @@ def scale(p_list:list, xc:int, yc:int, s:float) -> None:
         nx = round(ox*s + offset_x)
         ny = round(oy*s + offset_y)
         p_list[i] = [nx, ny]
+
+def clip(p_list: list, x0: int, y0: int, x1: int, y1: int, algorithm: str) -> None:
+    """Clip
+
+    param p_list: (list of list of int: [[x0, y0], [x1, y1]]) start and end points coordinates
+    param x0:     (int)
+    param y0:     (int)
+    param x1:     (int)
+    param y1:     (int)
+    algorithm:    (string) valid algorithm Cohen-Sutherland | Liang-Barsky
+    """
+
+    x_min, x_max = x0, x1
+    y_min, y_max = y0, y1
+    if x_min > x_max:
+        x_min, x_max = x_max, x_min
+    if y_min > y_max:
+        y_min, y_max = y_max, y_min
+    
+    if algorithm == 'Cohen-Sutherland':
+        INSIDE = 0  # 0000
+        LEFT = 1    # 0001
+        RIGHT = 2   # 0010
+        BOTTOM = 4  # 0100
+        TOP =  8    # 1000
+
+        def computeCode(p : list):
+            x, y = p
+            code = INSIDE
+            if x < x_min:
+                code |= LEFT
+            elif x > x_max:
+                code |= RIGHT
+            if y < y_min:
+                code |= BOTTOM
+            elif y > y_max:
+                code |= TOP
+            return code
+        
+        code1 = computeCode(p_list[0])
+        code2 = computeCode(p_list[1])
+        accept = False
+
+        while True:
+            if not (code1 | code2):
+                # accept
+                accept = True
+                break
+            elif (code1 & code2) != 0:
+                # reject
+                break
+            else:
+                x, y = 1.0, 1.0
+                xa, ya = p_list[0]
+                xb, yb = p_list[1]
+                code_out = code1 if code1 != 0 else code2
+
+                if code_out & TOP:
+                    x = xa + (xb - xa) * (y_max - ya) / (yb - ya)
+                    y = y_max
+                elif code_out & BOTTOM:
+                    x = xa + (xb - xa) * (y_min - ya) / (yb - ya)
+                    y = y_min
+                elif code_out & LEFT:
+                    y = ya + (yb - ya) * (x_min - xa) / (xb - xa)
+                    x = x_min
+                elif code_out & RIGHT:
+                    y = ya + (yb - ya) * (x_max - xa) / (xb - xa)
+                    x = x_max
+                
+                if code_out == code1:
+                    p_list[0] = [round(x), round(y)]
+                    code1 = computeCode(p_list[0])
+                else:
+                    p_list[1] = [round(x), round(y)]
+                    code2 = computeCode(p_list[1])
+        
+        if not accept:
+            p_list = []
+        
+    elif algorithm == 'Liang-Barsky':
+        xs, ys = p_list[0]
+        xf, yf = p_list[1]
+
+        p = [xs - xf, xf - xs, ys - yf, yf - ys]
+        q = [xs - x_min, x_max - xs, ys - y_min, y_max - ys]
+        u0, u1 = 0, 1
+
+        for i in range(4):
+            if p[i] < 0:
+                # outside to inside
+                u0 = max(u0, q[i]/p[i])
+            elif p[i] > 0:
+                # inside to outside
+                u1 = min(u1, q[i]/p[i])
+            elif (p[i] == 0 and q[i] < 0):
+                # reject
+                p_list = []
+                return
+            if u0 > u1:
+                # outside of cliping window
+                p_list = []
+                return
+        
+        if u0 > 0:
+            res_xs = round(xs + u0 * (xf - xs))
+            res_ys = round(ys + u0 * (yf - ys))
+            p_list[0] = [res_xs, res_ys]
+        if u1 < 1:
+            res_xf = round(xs + u1 * (xf - xs))
+            res_yf = round(ys + u1 * (yf - ys))
+            p_list[1] = [res_xf, res_yf]

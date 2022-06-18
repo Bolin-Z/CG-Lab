@@ -105,7 +105,13 @@ if __name__ == '__main__':
                 if item_id in item_dict:
                     alg.scale(item_dict[item_id][1], xc, yc, s)
             elif line[0] == 'clip':
-                pass
+                item_id = line[1]
+                x0, y0 = int(line[2]), int(line[3])
+                x1, y1 = int(line[4]), int(line[5])
+                algorithm = line[6]
+                if item_id in item_dict:
+                    if item_dict[item_id][0] == 'line':
+                        alg.clip(item_dict[item_id][1], x0, y0, x1, y1, algorithm)
             else:
                 sys.stderr.write('Syntax error: Command not find.\n')
             line = fp.readline()
