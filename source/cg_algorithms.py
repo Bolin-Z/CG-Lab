@@ -2,7 +2,6 @@
 # -*- coding:utf-8 -*-
 
 import math
-from unittest import result
 
 def draw_line(p_list: list, algorithm: str) -> list :
     """Draw line
