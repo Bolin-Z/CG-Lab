@@ -12,10 +12,14 @@ from PyQt5.QtWidgets import (
     QGraphicsView,
     QGraphicsItem,
     QListWidget,
+    QDialog,
+    QDialogButtonBox,
+    QFormLayout,
+    QLineEdit,
     QHBoxLayout,
     QWidget,
     QStyleOptionGraphicsItem)
-from PyQt5.QtGui import QPainter, QMouseEvent, QColor, QWheelEvent
+from PyQt5.QtGui import QPainter, QMouseEvent, QColor, QWheelEvent, QIntValidator
 from PyQt5.QtCore import QRectF, Qt
 from functools import partial
 
@@ -36,7 +40,17 @@ class MyCanvas(QGraphicsView):
         self.temp_id = ''
         self.temp_item = None
 
-        self.pen_color = [0, 0 , 0]
+        self.pen_color = [0, 0, 0]
+        self.item_cnt = 0
+        self.last_transform_info = None
+    
+    def start_reset(self):
+        self.item_dict.clear()
+        self.selected_id = ''
+        self.status = ''
+        self.temp_algorithm = ''
+        self.temp_id = ''
+        self.pen_color = [0, 0, 0]
         self.item_cnt = 0
         self.last_transform_info = None
 
@@ -101,9 +115,10 @@ class MyCanvas(QGraphicsView):
         if self.selected_id != '':
             self.item_dict[self.selected_id].selected = False
             self.item_dict[self.selected_id].update()
-        self.selected_id = selected
-        self.item_dict[selected].selected = True
-        self.item_dict[selected].update()
+        if selected != '':
+            self.selected_id = selected
+            self.item_dict[selected].selected = True
+            self.item_dict[selected].update()
         self.status = ''
         self.updateScene([self.sceneRect()])
 
@@ -310,7 +325,6 @@ class MyItem(QGraphicsItem):
         x, y, w, h = self.boundingFrame
         return QRectF(x - 1, y - 1, w + 2, h + 2)
 
-
 class MainWindow(QMainWindow):
     """
     主窗口类
@@ -371,6 +385,8 @@ class MainWindow(QMainWindow):
         scale_act.triggered.connect(self.scale_action)
         clip_cohen_sutherland_act.triggered.connect(partial(self.clip_action, 'Cohen-Sutherland'))
         clip_liang_barsky_act.triggered.connect(partial(self.clip_action, 'Liang-Barsky'))
+        set_pen_act.triggered.connect(self.set_pen_action)
+        reset_canvas_act.triggered.connect(self.reset_action)
         self.list_widget.currentTextChanged.connect(self.canvas_widget.selection_changed)
 
         # 设置主窗口的布局
@@ -423,6 +439,66 @@ class MainWindow(QMainWindow):
     def clip_action(self, algorithm):
         self.canvas_widget.start_clip(algorithm)
         self.statusBar().showMessage(algorithm + '算法裁剪线段')
+    
+    def reset_action(self):
+        self.statusBar().showMessage('重置画布')
+        dlg = QDialog(self)
+        dlg.setWindowTitle('请输入画布大小')
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Apply, dlg)
+        layout = QFormLayout(dlg)
+        inputs = []
+        vw = QIntValidator()
+        vw.setRange(50, 1920)
+        vh = QIntValidator()
+        vh.setRange(50, 1200)
+        inputs.append(QLineEdit(dlg))
+        inputs.append(QLineEdit(dlg))
+        inputs[0].setValidator(vw)
+        inputs[1].setValidator(vh)
+        layout.addRow('width', inputs[0])
+        layout.addRow('height', inputs[1])
+        layout.addWidget(buttonBox)
+
+        def reset_canvas():
+            if inputs[0].text() != '' and inputs[1].text() != '':
+                w = int(inputs[0].text())
+                h = int(inputs[1].text())
+                self.list_widget.clear()
+                self.canvas_widget.start_reset()
+                self.scene.clear()
+                self.scene.setSceneRect(0, 0, w, h)
+                self.canvas_widget.setFixedSize(w,h)                
+                dlg.done(QDialog.Accepted)
+
+        buttonBox.clicked.connect(reset_canvas)
+        dlg.exec_()
+    
+    def set_pen_action(self):
+        self.statusBar().showMessage('设置画笔颜色')
+        dlg = QDialog(self)
+        dlg.setWindowTitle("请输入RGB颜色")
+        buttonBox = QDialogButtonBox(QDialogButtonBox.Apply, dlg)
+        layout = QFormLayout(dlg)
+        inputs = []
+        labels = ['R','G','B']
+        for l in labels:
+            inputs.append(QLineEdit(dlg))
+            v = QIntValidator()
+            v.setRange(0,255)
+            inputs[-1].setValidator(v)
+            layout.addRow(l, inputs[-1])
+        layout.addWidget(buttonBox)
+
+        def get_pen_color():
+            if inputs[0].text() != '' and inputs[1].text() != '' and inputs[2].text() != '':
+                r = int(inputs[0].text())
+                g = int(inputs[1].text())
+                b = int(inputs[2].text())
+                self.canvas_widget.pen_color = [r, g, b]                    
+                dlg.done(QDialog.Accepted)
+
+        buttonBox.clicked.connect(get_pen_color)
+        dlg.exec_()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
