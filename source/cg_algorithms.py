@@ -311,6 +311,9 @@ def clip(p_list: list, x0: int, y0: int, x1: int, y1: int, algorithm: str) -> No
     algorithm:    (string) valid algorithm Cohen-Sutherland | Liang-Barsky
     """
 
+    if len(p_list) != 2:
+        return
+
     x_min, x_max = x0, x1
     y_min, y_max = y0, y1
     if x_min > x_max:
@@ -377,7 +380,7 @@ def clip(p_list: list, x0: int, y0: int, x1: int, y1: int, algorithm: str) -> No
                     code2 = computeCode(p_list[1])
         
         if not accept:
-            p_list = []
+            p_list.clear()
         
     elif algorithm == 'Liang-Barsky':
         xs, ys = p_list[0]
@@ -396,11 +399,11 @@ def clip(p_list: list, x0: int, y0: int, x1: int, y1: int, algorithm: str) -> No
                 u1 = min(u1, q[i]/p[i])
             elif (p[i] == 0 and q[i] < 0):
                 # reject
-                p_list = []
+                p_list.clear()
                 return
             if u0 > u1:
                 # outside of cliping window
-                p_list = []
+                p_list.clear()
                 return
         
         if u0 > 0:

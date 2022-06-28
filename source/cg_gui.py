@@ -38,7 +38,6 @@ class MyCanvas(QGraphicsView):
 
         self.pen_color = [0, 0 , 0]
         self.item_cnt = 0
-        self.last_cursor = []
         self.last_transform_info = None
 
     def start_draw_line(self, algorithm):
@@ -78,6 +77,12 @@ class MyCanvas(QGraphicsView):
         self.last_transform_info = None
         self.status = 'scale'
         self.temp_algorithm = ''
+    
+    def start_clip(self, algorithm):
+        self.finish_draw()
+        self.last_transform_info = None
+        self.status = 'clip'
+        self.temp_algorithm = algorithm
 
     def finish_draw(self):
         if self.temp_item != None:
@@ -167,6 +172,24 @@ class MyCanvas(QGraphicsView):
                     fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
                     alg.scale(self.item_dict[self.selected_id].p_list, fx, fy, s)
                     self.item_dict[self.selected_id].calBoundingFrame()
+            elif self.status == 'clip':
+                if self.selected_id != '':
+                    if self.item_dict[self.selected_id].item_type == 'line':
+                        if self.last_transform_info == None:
+                            self.last_transform_info = {'last_line' : None, 'last_point' : [x, y]}
+                        else:
+                            if self.last_transform_info['last_point'] != None:
+                                x0, y0 = self.last_transform_info['last_point']
+                                x1, y1 = x, y
+                                if len(self.item_dict[self.selected_id].p_list) == 2:
+                                    xs, ys = self.item_dict[self.selected_id].p_list[0]
+                                    xf, yf = self.item_dict[self.selected_id].p_list[1]
+                                    self.last_transform_info['last_line'] = [[xs, ys],[xf, yf]]
+                                    alg.clip(self.item_dict[self.selected_id].p_list, x0, y0, x1, y1, self.temp_algorithm)
+                                    self.item_dict[self.selected_id].calBoundingFrame()
+                                self.last_transform_info['last_point'] = None
+                            else:
+                                self.last_transform_info['last_point'] = [x, y]
         elif event.buttons() == Qt.RightButton:
             if self.status == 'line' or self.status == 'ellipse':
                 if self.temp_item != None:
@@ -185,7 +208,7 @@ class MyCanvas(QGraphicsView):
                     ox, oy = self.last_temp_pos
                     alg.translate(self.item_dict[self.selected_id].p_list, (ox - cx), (oy - cy))
                     self.item_dict[self.selected_id].calBoundingFrame()
-                    self.last_temp_pos = None
+                    self.last_transform_info = None
             elif self.status == 'rotate':
                 if self.selected_id != '':
                     if self.item_dict[self.selected_id].item_type != 'ellipse':
@@ -200,10 +223,20 @@ class MyCanvas(QGraphicsView):
                     fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
                     alg.scale(self.item_dict[self.selected_id].p_list, fx, fy, s)
                     self.item_dict[self.selected_id].calBoundingFrame()
+            elif self.status == 'clip':
+                if self.selected_id != '':
+                    if self.item_dict[self.selected_id].item_type == 'line':
+                        if self.last_transform_info != None:
+                            if self.last_transform_info['last_line'] != None:
+                                xs, ys = self.last_transform_info['last_line'][0]
+                                xf, yf = self.last_transform_info['last_line'][1]
+                                self.item_dict[self.selected_id].p_list = [[xs, ys],[xf, yf]]
+                                self.item_dict[self.selected_id].calBoundingFrame()
+                                self.last_transform_info['last_line'] = None
+                                self.last_transform_info['last_point'] = None
         elif event.buttons() == Qt.MidButton:
             self.finish_draw()
         self.updateScene([self.sceneRect()])
-        self.last_cursor = [x, y]
         super().mousePressEvent(event)
 
 class MyItem(QGraphicsItem):
@@ -232,13 +265,16 @@ class MyItem(QGraphicsItem):
     
     def calBoundingFrame(self) -> None:
         if self.item_type == 'line' or self.item_type == 'ellipse':
-            x0, y0 = self.p_list[0]
-            x1, y1 = self.p_list[1]
-            x = min(x0, x1)
-            y = min(y0, y1)
-            w = max(x0, x1) - x
-            h = max(y0, y1) - y
-            self.boundingFrame = [x , y, w, h]
+            if len(self.p_list) == 0:
+                self.boundingFrame = [0, 0, -2, -2]
+            else:
+                x0, y0 = self.p_list[0]
+                x1, y1 = self.p_list[1]
+                x = min(x0, x1)
+                y = min(y0, y1)
+                w = max(x0, x1) - x
+                h = max(y0, y1) - y
+                self.boundingFrame = [x , y, w, h]
         if self.item_type == 'polygon' or self.item_type == 'curve':
             if len(self.p_list) != 0:
                 xmin, ymin = self.p_list[0]
@@ -250,7 +286,7 @@ class MyItem(QGraphicsItem):
                     ymax = max(ymax, item[1])
                 self.boundingFrame = [xmin, ymin, xmax - xmin, ymax - ymin]
             else:
-                self.boundingFrame = [0, 0, 0, 0]
+                self.boundingFrame = [0, 0, -2, -2]
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = ...) -> None:        
         if self.item_type == 'line':
@@ -333,6 +369,8 @@ class MainWindow(QMainWindow):
         translate_act.triggered.connect(self.translate_action)
         rotate_act.triggered.connect(self.rotate_action)
         scale_act.triggered.connect(self.scale_action)
+        clip_cohen_sutherland_act.triggered.connect(partial(self.clip_action, 'Cohen-Sutherland'))
+        clip_liang_barsky_act.triggered.connect(partial(self.clip_action, 'Liang-Barsky'))
         self.list_widget.currentTextChanged.connect(self.canvas_widget.selection_changed)
 
         # 设置主窗口的布局
@@ -381,6 +419,10 @@ class MainWindow(QMainWindow):
     def scale_action(self):
         self.canvas_widget.start_scale()
         self.statusBar().showMessage('缩放图元')
+    
+    def clip_action(self, algorithm):
+        self.canvas_widget.start_clip(algorithm)
+        self.statusBar().showMessage(algorithm + '算法裁剪线段')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
