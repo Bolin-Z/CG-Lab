@@ -36,15 +36,35 @@ class MyCanvas(QGraphicsView):
         self.temp_id = ''
         self.temp_item = None
 
-        self.pen_color = [255, 0 , 255]
+        self.pen_color = [0, 0 , 0]
+        self.item_cnt = 0
 
-    def start_draw_line(self, algorithm, item_id):
+    def start_draw_line(self, algorithm):
+        self.finish_draw()
         self.status = 'line'
         self.temp_algorithm = algorithm
-        self.temp_id = item_id
+
+    def start_draw_polygon(self, algorithm):
+        self.finish_draw()
+        self.status = 'polygon'
+        self.temp_algorithm = algorithm
+    
+    def start_draw_ellipse(self):
+        self.finish_draw()
+        self.status = 'ellipse'
+        self.temp_algorithm = ''
+    
+    def start_draw_curve(self, algorithm):
+        self.finish_draw()
+        self.status = 'curve'
+        self.temp_algorithm = algorithm
 
     def finish_draw(self):
-        self.temp_id = self.main_window.get_id()
+        if self.temp_item != None:
+            self.item_dict[self.temp_id] = self.temp_item
+            self.list_widget.addItem(self.temp_id)
+            self.temp_item = None
+            self.temp_id = ''
 
     def clear_selection(self):
         if self.selected_id != '':
@@ -67,51 +87,39 @@ class MyCanvas(QGraphicsView):
         x = int(pos.x())
         y = int(pos.y())
         if event.buttons() == Qt.LeftButton:
-            if self.status == 'line':
+            if self.status == 'line' or self.status == 'ellipse':
                 if self.temp_item == None:
+                    self.temp_id = str(self.item_cnt)
+                    self.item_cnt += 1
                     self.temp_item = MyItem(self.temp_id, self.status, self.pen_color, [[x, y], [x, y]], self.temp_algorithm)
                     self.scene().addItem(self.temp_item)
                 else:
                     self.temp_item.p_list[0] = self.temp_item.p_list[1]
                     self.temp_item.p_list[1] = [x, y]
                     self.temp_item.calBoundingFrame()
+            elif self.status == 'polygon' or self.status == 'curve':
+                if self.temp_item == None:
+                    self.temp_id = str(self.item_cnt)
+                    self.item_cnt += 1
+                    self.temp_item = MyItem(self.temp_id, self.status, self.pen_color, [[x, y]], self.temp_algorithm)
+                    self.scene().addItem(self.temp_item)
+                else:
+                    self.temp_item.p_list.append([x,y])
+                    self.temp_item.calBoundingFrame()
         elif event.buttons() == Qt.RightButton:
-            if self.status == 'line':
+            if self.status == 'line' or self.status == 'ellipse':
                 if self.temp_item != None:
                     self.temp_item.p_list[1] = self.temp_item.p_list[0]
                     self.temp_item.calBoundingFrame()
-        elif event.buttons() == Qt.MidButton:
-            if self.status == 'line':
+            elif self.status == 'polygon' or self.status == 'curve':
                 if self.temp_item != None:
-                    self.item_dict[self.temp_id] = self.temp_item
-                    self.temp_item = None
-                    self.list_widget.addItem(self.temp_id)
-                    self.finish_draw()
+                    if len(self.temp_item.p_list) > 1:
+                        self.temp_item.p_list.pop()
+                        self.temp_item.calBoundingFrame()
+        elif event.buttons() == Qt.MidButton:
+            self.finish_draw()
         self.updateScene([self.sceneRect()])
         super().mousePressEvent(event)
-
-    #     if self.status == 'line':
-    #         self.temp_item = MyItem(self.temp_id, self.status, self.pen_color, [[x, y], [x, y]], self.temp_algorithm)
-    #         self.scene().addItem(self.temp_item)
-    #     self.updateScene([self.sceneRect()])
-
-    # def mouseMoveEvent(self, event: QMouseEvent) -> None:
-    #     pos = self.mapToScene(event.localPos().toPoint())
-    #     x = int(pos.x())
-    #     y = int(pos.y())
-    #     if self.status == 'line':
-    #         self.temp_item.p_list[1] = [x, y]
-    #         self.temp_item.calBoundingFrame()
-    #     self.updateScene([self.sceneRect()])
-    #     super().mouseMoveEvent(event)
-
-    # def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-    #     if self.status == 'line':
-    #         self.item_dict[self.temp_id] = self.temp_item
-    #         self.list_widget.addItem(self.temp_id)
-    #         self.finish_draw()
-    #     super().mouseReleaseEvent(event)
-
 
 class MyItem(QGraphicsItem):
     """
@@ -138,7 +146,7 @@ class MyItem(QGraphicsItem):
         self.calBoundingFrame()
     
     def calBoundingFrame(self) -> None:
-        if self.item_type == 'line':
+        if self.item_type == 'line' or self.item_type == 'ellipse':
             x0, y0 = self.p_list[0]
             x1, y1 = self.p_list[1]
             x = min(x0, x1)
@@ -146,6 +154,18 @@ class MyItem(QGraphicsItem):
             w = max(x0, x1) - x
             h = max(y0, y1) - y
             self.boundingFrame = [x , y, w, h]
+        if self.item_type == 'polygon' or self.item_type == 'curve':
+            if len(self.p_list) != 0:
+                xmin, ymin = self.p_list[0]
+                xmax, ymax = self.p_list[0]
+                for item in self.p_list:
+                    xmin = min(xmin, item[0])
+                    xmax = max(xmax, item[0])
+                    ymin = min(ymin, item[1])
+                    ymax = max(ymax, item[1])
+                self.boundingFrame = [xmin, ymin, xmax - xmin, ymax - ymin]
+            else:
+                self.boundingFrame = [0, 0, 0, 0]
 
     def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = ...) -> None:        
         if self.item_type == 'line':
@@ -176,7 +196,6 @@ class MainWindow(QMainWindow):
     """
     def __init__(self):
         super().__init__()
-        self.item_cnt = 0
 
         # 使用QListWidget来记录已有的图元，并用于选择图元。注：这是图元选择的简单实现方法，更好的实现是在画布中直接用鼠标选择图元
         self.list_widget = QListWidget(self)
@@ -221,6 +240,11 @@ class MainWindow(QMainWindow):
         line_naive_act.triggered.connect(partial(self.line_action, 'Naive'))
         line_dda_act.triggered.connect(partial(self.line_action, 'DDA'))
         line_bresenham_act.triggered.connect(partial(self.line_action, 'Bresenham'))
+        polygon_dda_act.triggered.connect(partial(self.polygon_action, 'DDA'))
+        polygon_bresenham_act.triggered.connect(partial(self.polygon_action, 'Bresenham'))
+        ellipse_act.triggered.connect(self.ellipse_action)
+        curve_bezier_act.triggered.connect(partial(self.curve_action, 'Bezier'))
+        curve_b_spline_act.triggered.connect(partial(self.curve_action, 'B-spline'))
         self.list_widget.currentTextChanged.connect(self.canvas_widget.selection_changed)
 
         # 设置主窗口的布局
@@ -234,16 +258,29 @@ class MainWindow(QMainWindow):
         self.resize(600, 600)
         self.setWindowTitle('CG Demo')
 
-    def get_id(self):
-        _id = str(self.item_cnt)
-        self.item_cnt += 1
-        return _id
-
     def line_action(self, algorithm):
-        self.canvas_widget.start_draw_line(algorithm, self.get_id())
+        self.canvas_widget.start_draw_line(algorithm)
         self.statusBar().showMessage(algorithm + '算法绘制线段')
         self.list_widget.clearSelection()
         self.canvas_widget.clear_selection()
+    
+    def polygon_action(self, algorithm):
+        self.canvas_widget.start_draw_polygon(algorithm)
+        self.statusBar().showMessage(algorithm + '算法绘制多边形')
+        self.list_widget.clearSelection()
+        self.canvas_widget.clear_selection()
+    
+    def ellipse_action(self):
+        self.canvas_widget.start_draw_ellipse()
+        self.statusBar().showMessage('中点圆算法绘制椭圆')
+        self.list_widget.clearSelection()
+        self.canvas_widget.clear_selection()
+    
+    def curve_action(self, algorithm):
+        self.canvas_widget.start_draw_curve(algorithm)
+        self.statusBar().showMessage(algorithm + '算法绘制曲线')
+        self.list_widget.clearSelection()
+        self.canvas_widget.clear_selection()       
 
 
 if __name__ == '__main__':

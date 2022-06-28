@@ -140,6 +140,9 @@ def draw_ellipse(p_list: list) -> list:
         result.append([xc - x, yc + y])
         return result
 
+    if len(p_list) != 2:
+        return []
+
     x0, y0 = p_list[0]
     x1, y1 = p_list[1]
     xc = round((x0 + x1) / 2)
@@ -202,13 +205,12 @@ def draw_curve(p_list: list, algorithm : str) -> list :
                 """
                 p = []
                 for i in range(0, len(p_list)):
-                    p.append(p_list[i])
+                    p.append([p_list[i][0], p_list[i][1]])
                 for k in range(1, len(p_list)):
                     for s in range(0, len(p_list) - k):
                         p[s][0] = (1-u)*p[s][0] + u * p[s+1][0]
                         p[s][1] = (1-u)*p[s][1] + u * p[s+1][1]
                 return [round(p[0][0]), round(p[0][1])]
-
             curvePoints = []
             u = 0.0
             step = 0.01
@@ -235,7 +237,7 @@ def draw_curve(p_list: list, algorithm : str) -> list :
                     ctrlPoints = []
                     # ctrlPoints = {P_{k-p}, P_{k-p+1}, ..., P_{k-s-1}, P_{k-s}}
                     for affectedPoint in range(k - p, k - s + 1):
-                        ctrlPoints.append(p_list[affectedPoint])
+                        ctrlPoints.append([p_list[affectedPoint][0], p_list[affectedPoint][1]])
                     # calculate C(u)
                     for r in range(1, h + 1):
                         offset = k - p
