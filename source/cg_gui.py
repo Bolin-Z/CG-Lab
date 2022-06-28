@@ -15,7 +15,7 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QWidget,
     QStyleOptionGraphicsItem)
-from PyQt5.QtGui import QPainter, QMouseEvent, QColor
+from PyQt5.QtGui import QPainter, QMouseEvent, QColor, QWheelEvent
 from PyQt5.QtCore import QRectF, Qt
 from functools import partial
 
@@ -38,6 +38,8 @@ class MyCanvas(QGraphicsView):
 
         self.pen_color = [0, 0 , 0]
         self.item_cnt = 0
+        self.last_cursor = []
+        self.last_transform_info = None
 
     def start_draw_line(self, algorithm):
         self.finish_draw()
@@ -58,6 +60,24 @@ class MyCanvas(QGraphicsView):
         self.finish_draw()
         self.status = 'curve'
         self.temp_algorithm = algorithm
+    
+    def start_translate(self):
+        self.finish_draw()
+        self.last_transform_info = None
+        self.status = 'translate'
+        self.temp_algorithm = ''
+    
+    def start_rotate(self):
+        self.finish_draw()
+        self.last_transform_info = None
+        self.status = 'rotate'
+        self.temp_algorithm = ''
+    
+    def start_scale(self):
+        self.finish_draw()
+        self.last_transform_info = None
+        self.status = 'scale'
+        self.temp_algorithm = ''
 
     def finish_draw(self):
         if self.temp_item != None:
@@ -81,6 +101,25 @@ class MyCanvas(QGraphicsView):
         self.item_dict[selected].update()
         self.status = ''
         self.updateScene([self.sceneRect()])
+
+    def wheelEvent(self, event: QWheelEvent) -> None:
+        if self.status == 'rotate':
+            if self.selected_id != '':
+                if self.item_dict[self.selected_id].item_type != 'ellipse':
+                    degree = 1 if event.angleDelta().y() > 0 else -1
+                    fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                    cx = round(fx + fw / 2)
+                    cy = round(fy + fh / 2)
+                    alg.rotate(self.item_dict[self.selected_id].p_list, cx, cy, degree)
+                    self.item_dict[self.selected_id].calBoundingFrame()
+        elif self.status == 'scale':
+            if self.selected_id != '':
+                s = 1.1 if event.angleDelta().y() > 0 else 0.9
+                fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                alg.scale(self.item_dict[self.selected_id].p_list, fx, fy, s)
+                self.item_dict[self.selected_id].calBoundingFrame()
+        self.updateScene([self.sceneRect()])
+        super().wheelEvent(event)
 
     def mousePressEvent(self, event: QMouseEvent) -> None:
         pos = self.mapToScene(event.localPos().toPoint())
@@ -106,6 +145,28 @@ class MyCanvas(QGraphicsView):
                 else:
                     self.temp_item.p_list.append([x,y])
                     self.temp_item.calBoundingFrame()
+            elif self.status == 'translate':
+                if self.selected_id != '':
+                    fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                    cx = round(fx + fw / 2)
+                    cy = round(fy + fh / 2)
+                    self.last_transform_info = [cx, cy]
+                    alg.translate(self.item_dict[self.selected_id].p_list, (x - cx), (y - cy))
+                    self.item_dict[self.selected_id].calBoundingFrame()
+            elif self.status == 'rotate':
+                if self.selected_id != '':
+                    if self.item_dict[self.selected_id].item_type != 'ellipse':
+                        fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                        cx = round(fx + fw / 2)
+                        cy = round(fy + fh / 2)
+                        alg.rotate(self.item_dict[self.selected_id].p_list, cx, cy, 1)
+                        self.item_dict[self.selected_id].calBoundingFrame()
+            elif self.status == 'scale':
+                if self.selected_id != '':
+                    s = 1.1
+                    fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                    alg.scale(self.item_dict[self.selected_id].p_list, fx, fy, s)
+                    self.item_dict[self.selected_id].calBoundingFrame()
         elif event.buttons() == Qt.RightButton:
             if self.status == 'line' or self.status == 'ellipse':
                 if self.temp_item != None:
@@ -116,9 +177,33 @@ class MyCanvas(QGraphicsView):
                     if len(self.temp_item.p_list) > 1:
                         self.temp_item.p_list.pop()
                         self.temp_item.calBoundingFrame()
+            elif self.status == 'translate':
+                if self.selected_id != '' and self.last_transform_info != None:
+                    fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                    cx = round(fx + fw / 2)
+                    cy = round(fy + fh / 2)
+                    ox, oy = self.last_temp_pos
+                    alg.translate(self.item_dict[self.selected_id].p_list, (ox - cx), (oy - cy))
+                    self.item_dict[self.selected_id].calBoundingFrame()
+                    self.last_temp_pos = None
+            elif self.status == 'rotate':
+                if self.selected_id != '':
+                    if self.item_dict[self.selected_id].item_type != 'ellipse':
+                        fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                        cx = round(fx + fw / 2)
+                        cy = round(fy + fh / 2)
+                        alg.rotate(self.item_dict[self.selected_id].p_list, cx, cy, -1)
+                        self.item_dict[self.selected_id].calBoundingFrame()
+            elif self.status == 'scale':
+                if self.selected_id != '':
+                    s = 0.9
+                    fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
+                    alg.scale(self.item_dict[self.selected_id].p_list, fx, fy, s)
+                    self.item_dict[self.selected_id].calBoundingFrame()
         elif event.buttons() == Qt.MidButton:
             self.finish_draw()
         self.updateScene([self.sceneRect()])
+        self.last_cursor = [x, y]
         super().mousePressEvent(event)
 
 class MyItem(QGraphicsItem):
@@ -245,6 +330,9 @@ class MainWindow(QMainWindow):
         ellipse_act.triggered.connect(self.ellipse_action)
         curve_bezier_act.triggered.connect(partial(self.curve_action, 'Bezier'))
         curve_b_spline_act.triggered.connect(partial(self.curve_action, 'B-spline'))
+        translate_act.triggered.connect(self.translate_action)
+        rotate_act.triggered.connect(self.rotate_action)
+        scale_act.triggered.connect(self.scale_action)
         self.list_widget.currentTextChanged.connect(self.canvas_widget.selection_changed)
 
         # 设置主窗口的布局
@@ -281,7 +369,18 @@ class MainWindow(QMainWindow):
         self.statusBar().showMessage(algorithm + '算法绘制曲线')
         self.list_widget.clearSelection()
         self.canvas_widget.clear_selection()       
-
+    
+    def translate_action(self):
+        self.canvas_widget.start_translate()
+        self.statusBar().showMessage('平移图元')
+    
+    def rotate_action(self):
+        self.canvas_widget.start_rotate()
+        self.statusBar().showMessage('旋转图元')
+    
+    def scale_action(self):
+        self.canvas_widget.start_scale()
+        self.statusBar().showMessage('缩放图元')
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
