@@ -220,7 +220,7 @@ class MyCanvas(QGraphicsView):
                     fx, fy, fw, fh = self.item_dict[self.selected_id].boundingFrame
                     cx = round(fx + fw / 2)
                     cy = round(fy + fh / 2)
-                    ox, oy = self.last_temp_pos
+                    ox, oy = self.last_transform_info
                     alg.translate(self.item_dict[self.selected_id].p_list, (ox - cx), (oy - cy))
                     self.item_dict[self.selected_id].calBoundingFrame()
                     self.last_transform_info = None
