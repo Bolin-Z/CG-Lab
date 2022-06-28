@@ -16,7 +16,8 @@ from PyQt5.QtWidgets import (
     QWidget,
     QStyleOptionGraphicsItem)
 from PyQt5.QtGui import QPainter, QMouseEvent, QColor
-from PyQt5.QtCore import QRectF
+from PyQt5.QtCore import QRectF, Qt
+from functools import partial
 
 
 class MyCanvas(QGraphicsView):
@@ -34,6 +35,8 @@ class MyCanvas(QGraphicsView):
         self.temp_algorithm = ''
         self.temp_id = ''
         self.temp_item = None
+
+        self.pen_color = [255, 0 , 255]
 
     def start_draw_line(self, algorithm, item_id):
         self.status = 'line'
@@ -63,34 +66,58 @@ class MyCanvas(QGraphicsView):
         pos = self.mapToScene(event.localPos().toPoint())
         x = int(pos.x())
         y = int(pos.y())
-        if self.status == 'line':
-            self.temp_item = MyItem(self.temp_id, self.status, [[x, y], [x, y]], self.temp_algorithm)
-            self.scene().addItem(self.temp_item)
+        if event.buttons() == Qt.LeftButton:
+            if self.status == 'line':
+                if self.temp_item == None:
+                    self.temp_item = MyItem(self.temp_id, self.status, self.pen_color, [[x, y], [x, y]], self.temp_algorithm)
+                    self.scene().addItem(self.temp_item)
+                else:
+                    self.temp_item.p_list[0] = self.temp_item.p_list[1]
+                    self.temp_item.p_list[1] = [x, y]
+                    self.temp_item.calBoundingFrame()
+        elif event.buttons() == Qt.RightButton:
+            if self.status == 'line':
+                if self.temp_item != None:
+                    self.temp_item.p_list[1] = self.temp_item.p_list[0]
+                    self.temp_item.calBoundingFrame()
+        elif event.buttons() == Qt.MidButton:
+            if self.status == 'line':
+                if self.temp_item != None:
+                    self.item_dict[self.temp_id] = self.temp_item
+                    self.temp_item = None
+                    self.list_widget.addItem(self.temp_id)
+                    self.finish_draw()
         self.updateScene([self.sceneRect()])
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        pos = self.mapToScene(event.localPos().toPoint())
-        x = int(pos.x())
-        y = int(pos.y())
-        if self.status == 'line':
-            self.temp_item.p_list[1] = [x, y]
-        self.updateScene([self.sceneRect()])
-        super().mouseMoveEvent(event)
+    #     if self.status == 'line':
+    #         self.temp_item = MyItem(self.temp_id, self.status, self.pen_color, [[x, y], [x, y]], self.temp_algorithm)
+    #         self.scene().addItem(self.temp_item)
+    #     self.updateScene([self.sceneRect()])
 
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if self.status == 'line':
-            self.item_dict[self.temp_id] = self.temp_item
-            self.list_widget.addItem(self.temp_id)
-            self.finish_draw()
-        super().mouseReleaseEvent(event)
+    # def mouseMoveEvent(self, event: QMouseEvent) -> None:
+    #     pos = self.mapToScene(event.localPos().toPoint())
+    #     x = int(pos.x())
+    #     y = int(pos.y())
+    #     if self.status == 'line':
+    #         self.temp_item.p_list[1] = [x, y]
+    #         self.temp_item.calBoundingFrame()
+    #     self.updateScene([self.sceneRect()])
+    #     super().mouseMoveEvent(event)
+
+    # def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+    #     if self.status == 'line':
+    #         self.item_dict[self.temp_id] = self.temp_item
+    #         self.list_widget.addItem(self.temp_id)
+    #         self.finish_draw()
+    #     super().mouseReleaseEvent(event)
 
 
 class MyItem(QGraphicsItem):
     """
     自定义图元类，继承自QGraphicsItem
     """
-    def __init__(self, item_id: str, item_type: str, p_list: list, algorithm: str = '', parent: QGraphicsItem = None):
+    def __init__(self, item_id: str, item_type: str, pen_color: list, p_list: list, algorithm: str = '', parent: QGraphicsItem = None):
         """
 
         :param item_id: 图元ID
@@ -105,23 +132,12 @@ class MyItem(QGraphicsItem):
         self.p_list = p_list        # 图元参数
         self.algorithm = algorithm  # 绘制算法，'DDA'、'Bresenham'、'Bezier'、'B-spline'等
         self.selected = False
-
-    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = ...) -> None:
-        if self.item_type == 'line':
-            item_pixels = alg.draw_line(self.p_list, self.algorithm)
-            for p in item_pixels:
-                painter.drawPoint(*p)
-            if self.selected:
-                painter.setPen(QColor(255, 0, 0))
-                painter.drawRect(self.boundingRect())
-        elif self.item_type == 'polygon':
-            pass
-        elif self.item_type == 'ellipse':
-            pass
-        elif self.item_type == 'curve':
-            pass
-
-    def boundingRect(self) -> QRectF:
+        
+        self.pen_color = pen_color  # 图元颜色, (R,G,B)
+        self.boundingFrame = []     # 图元外方框 [ x, y, w, h]
+        self.calBoundingFrame()
+    
+    def calBoundingFrame(self) -> None:
         if self.item_type == 'line':
             x0, y0 = self.p_list[0]
             x1, y1 = self.p_list[1]
@@ -129,13 +145,29 @@ class MyItem(QGraphicsItem):
             y = min(y0, y1)
             w = max(x0, x1) - x
             h = max(y0, y1) - y
-            return QRectF(x - 1, y - 1, w + 2, h + 2)
+            self.boundingFrame = [x , y, w, h]
+
+    def paint(self, painter: QPainter, option: QStyleOptionGraphicsItem, widget: Optional[QWidget] = ...) -> None:        
+        if self.item_type == 'line':
+            item_pixels = alg.draw_line(self.p_list, self.algorithm)
         elif self.item_type == 'polygon':
-            pass
+            item_pixels = alg.draw_polygon(self.p_list, self.algorithm)
         elif self.item_type == 'ellipse':
-            pass
+            item_pixels = alg.draw_ellipse(self.p_list)
         elif self.item_type == 'curve':
-            pass
+            item_pixels = alg.draw_curve(self.p_list, self.algorithm)
+        
+        r, g, b = self.pen_color
+        painter.setPen(QColor(r, g, b))
+        for p in item_pixels:
+            painter.drawPoint(*p)
+        if self.selected:
+            painter.setPen(QColor(255, 0, 0))
+            painter.drawRect(self.boundingRect())
+
+    def boundingRect(self) -> QRectF:
+        x, y, w, h = self.boundingFrame
+        return QRectF(x - 1, y - 1, w + 2, h + 2)
 
 
 class MainWindow(QMainWindow):
@@ -186,7 +218,9 @@ class MainWindow(QMainWindow):
 
         # 连接信号和槽函数
         exit_act.triggered.connect(qApp.quit)
-        line_naive_act.triggered.connect(self.line_naive_action)
+        line_naive_act.triggered.connect(partial(self.line_action, 'Naive'))
+        line_dda_act.triggered.connect(partial(self.line_action, 'DDA'))
+        line_bresenham_act.triggered.connect(partial(self.line_action, 'Bresenham'))
         self.list_widget.currentTextChanged.connect(self.canvas_widget.selection_changed)
 
         # 设置主窗口的布局
@@ -205,9 +239,9 @@ class MainWindow(QMainWindow):
         self.item_cnt += 1
         return _id
 
-    def line_naive_action(self):
-        self.canvas_widget.start_draw_line('Naive', self.get_id())
-        self.statusBar().showMessage('Naive算法绘制线段')
+    def line_action(self, algorithm):
+        self.canvas_widget.start_draw_line(algorithm, self.get_id())
+        self.statusBar().showMessage(algorithm + '算法绘制线段')
         self.list_widget.clearSelection()
         self.canvas_widget.clear_selection()
 
